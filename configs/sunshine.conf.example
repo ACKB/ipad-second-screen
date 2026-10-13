@@ -1,0 +1,21 @@
+# ==============================================================================
+# sunshine.conf.example - Plantilla de configuración de Sunshine para iPad
+# Ubicación real: ~/.config/sunshine/sunshine.conf
+# ==============================================================================
+
+# Nombre del conector DRM que Sunshine debe capturar.
+# CRUCIAL: Debe coincidir con el nombre KMS del conector forzado (ej. HDMI-A-1).
+# Si falta esta línea, Sunshine capturará el monitor 0 (tu pantalla principal)
+# haciendo que el iPad actúe como un espejo en vez de una pantalla extendida.
+output_name = HDMI-A-1
+
+# Método de captura (kms es el más rápido en Linux con drivers modernos de GPU)
+capture = kms
+
+# Dispositivo de audio virtual para aislar o enviar sonido
+audio_sink = sink-sunshine-stereo
+
+# Control de calidad y rendimiento
+nvenc_twopass = disabled
+min_log_level = info
+gamepad = ds5

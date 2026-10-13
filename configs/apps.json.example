@@ -1,0 +1,18 @@
+{
+  "env": {
+    "PATH": "$(PATH):$(HOME)/.local/bin"
+  },
+  "apps": [
+    {
+      "name": "iPad (Segunda Pantalla)",
+      "output_name": "HDMI-A-1",
+      "image-path": "desktop.png",
+      "prep-cmd": [
+        {
+          "do": "$HOME/.local/bin/ipad-display-on.sh",
+          "undo": "$HOME/.local/bin/ipad-display-off.sh"
+        }
+      ]
+    }
+  ]
+}

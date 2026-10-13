@@ -1,0 +1,9 @@
+# Logs and temporary files
+*.log
+*.pid
+*~
+.DS_Store
+
+# User-specific credentials or states
+credentials/
+sunshine_state.json
