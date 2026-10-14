@@ -21,7 +21,7 @@
 Clona este repositorio y ejecuta el asistente interactivo:
 
 ```bash
-git clone https://github.com/TU_USUARIO/ipad-second-screen.git
+git clone https://github.com/ACKB/ipad-second-screen.git
 cd ipad-second-screen
 chmod +x *.sh scripts/*.sh
 ./configurar.sh
