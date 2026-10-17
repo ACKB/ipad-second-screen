@@ -198,7 +198,7 @@ mkdir -p "$SUNSHINE_CONFIG_DIR"
 SUNSHINE_CONF="${SUNSHINE_CONFIG_DIR}/sunshine.conf"
 SUNSHINE_APPS="${SUNSHINE_CONFIG_DIR}/apps.json"
 
-# Inyectar output_name en sunshine.conf SOLO si no existe
+# Inyectar output_name y encoder en sunshine.conf SOLO si no existen
 if [ -f "$SUNSHINE_CONF" ]; then
     if ! grep -q "^output_name" "$SUNSHINE_CONF"; then
         echo "output_name = HDMI-A-1" >> "$SUNSHINE_CONF"
@@ -207,6 +207,15 @@ if [ -f "$SUNSHINE_CONF" ]; then
 else
     echo "output_name = HDMI-A-1" > "$SUNSHINE_CONF"
     echo "capture = kms" >> "$SUNSHINE_CONF"
+fi
+
+# En portátiles con GPU híbrida (Intel + NVIDIA), forzar 'encoder = nvenc' evita que
+# Sunshine caiga al codificador Vulkan de Intel (que causa SEGV / core dump en Mesa).
+if command -v nvidia-smi &>/dev/null || lspci | grep -qi nvidia; then
+    if ! grep -q "^encoder" "$SUNSHINE_CONF"; then
+        echo "encoder = nvenc" >> "$SUNSHINE_CONF"
+        echo "    ✓ Configurado 'encoder = nvenc' para compatibilidad con GPU híbrida (NVIDIA)."
+    fi
 fi
 
 # Fusión NO DESTRUCTIVA en apps.json mediante Python

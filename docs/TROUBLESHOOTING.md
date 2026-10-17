@@ -59,3 +59,40 @@ org.freedesktop.DBus.Error.InvalidArgs: Logical monitors not adjacent
    - Puedes subir el bitrate a **15 - 30 Mbps** para máxima nitidez en texto fino.
    - Selecciona la resolución correspondiente en `./configurar.sh` para aprovechar al 100% la pantalla Retina.
 
+---
+
+## 5. Cierre inesperado al iniciar Sunshine (`signal=SEGV` / Core Dump en Laptops con GPU Dual Intel + NVIDIA)
+
+### Síntomas en el log de Sunshine:
+```text
+Info: Screencasting with KMS
+Info: Mapped 'HDMI-A-1' to kmsgrab monitor index 0
+Error: Couldn't find monitor [0]
+Info: Encoder [nvenc] failed
+Info: Trying encoder [vulkan]
+Info: Creating encoder [h264_vulkan]
+...
+systemd: app-dev.lizardbyte.app.Sunshine.service: Main process exited, code=dumped, status=11/SEGV
+systemd: Failed with result 'core-dump' / 'start-limit-hit'.
+```
+
+### Causa Raíz:
+En portátiles con gráficos híbridos (Intel Iris Xe/Arc como `card0` y NVIDIA GeForce como `card1`):
+1. La pantalla principal (`eDP-2`) está físicamente conectada a la GPU Intel (`card0`), mientras que el conector virtual `HDMI-A-1` pertenece a la GPU NVIDIA (`card1`).
+2. Al iniciar Sunshine cuando el iPad está apagado (`HDMI-A-1` desconectado), la GPU NVIDIA no tiene ninguna pantalla activa local. El autotest de KMS para NVENC no encuentra monitores en la tarjeta NVIDIA (`Couldn't find monitor [0]`) y reporta fallo temporal.
+3. Sunshine intenta como alternativa el codificador Vulkan (`h264_vulkan`) usando el controlador de Intel (`libvulkan_intel.so` de Mesa).
+4. La implementación de Vulkan Video Encode en el controlador Mesa Intel contiene un fallo conocido que genera un fallo de segmentación (`signal: 11 SEGV`) y cierra el proceso.
+
+### Solución:
+Forzar a Sunshine a utilizar exclusivamente el codificador por hardware de NVIDIA (`nvenc`), evitando que caiga en el codificador experimental de Intel:
+1. Edita `~/.config/sunshine/sunshine.conf` y añade:
+   ```ini
+   encoder = nvenc
+   ```
+2. Reinicia el servicio:
+   ```bash
+   systemctl --user reset-failed app-dev.lizardbyte.app.Sunshine.service
+   systemctl --user restart app-dev.lizardbyte.app.Sunshine.service
+   ```
+3. Verifica que el estado sea `active (running)`.
+

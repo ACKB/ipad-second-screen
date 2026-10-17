@@ -36,9 +36,18 @@ sleep 0.8
 
 echo "==> [2/3] Verificando configuración de salida en Sunshine..."
 if [ -f "$CONF_FILE" ]; then
+    RESTART_NEEDED=0
     if ! grep -q "^output_name" "$CONF_FILE"; then
         echo "    Agregando 'output_name = HDMI-A-1' a sunshine.conf..."
         echo "output_name = HDMI-A-1" >> "$CONF_FILE"
+        RESTART_NEEDED=1
+    fi
+    if (command -v nvidia-smi &>/dev/null || lspci 2>/dev/null | grep -qi nvidia) && ! grep -q "^encoder" "$CONF_FILE"; then
+        echo "    Agregando 'encoder = nvenc' a sunshine.conf..."
+        echo "encoder = nvenc" >> "$CONF_FILE"
+        RESTART_NEEDED=1
+    fi
+    if [ "$RESTART_NEEDED" -eq 1 ]; then
         systemctl --user restart app-dev.lizardbyte.app.Sunshine.service 2>/dev/null || true
     fi
 fi

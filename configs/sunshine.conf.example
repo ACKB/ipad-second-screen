@@ -15,6 +15,11 @@ capture = kms
 # Dispositivo de audio virtual para aislar o enviar sonido
 audio_sink = sink-sunshine-stereo
 
+# Codificador de video de hardware
+# En portátiles con GPU dual (Intel iGPU + NVIDIA dGPU), especificar 'encoder = nvenc'
+# evita que Sunshine intente usar el codificador Vulkan de Intel (que suele causar core dump / SEGV).
+encoder = nvenc
+
 # Control de calidad y rendimiento
 nvenc_twopass = disabled
 min_log_level = info
