@@ -37,9 +37,10 @@ sleep 0.8
 echo "==> [2/3] Verificando configuración de salida en Sunshine..."
 if [ -f "$CONF_FILE" ]; then
     RESTART_NEEDED=0
+    KMS_NAME="${DRM_CONNECTOR#*-}"
     if ! grep -q "^output_name" "$CONF_FILE"; then
-        echo "    Agregando 'output_name = HDMI-A-1' a sunshine.conf..."
-        echo "output_name = HDMI-A-1" >> "$CONF_FILE"
+        echo "    Agregando 'output_name = ${KMS_NAME}' a sunshine.conf..."
+        echo "output_name = ${KMS_NAME}" >> "$CONF_FILE"
         RESTART_NEEDED=1
     fi
     if (command -v nvidia-smi &>/dev/null || lspci 2>/dev/null | grep -qi nvidia) && ! grep -q "^encoder" "$CONF_FILE"; then
@@ -66,8 +67,9 @@ try:
     iface = dbus.Interface(obj, 'org.gnome.Mutter.DisplayConfig')
     serial, monitors, logical_monitors, props = iface.GetCurrentState()
 
-    edp_info = None
-    hdmi_info = None
+    main_info = None
+    ipad_info = None
+    v_prefix = '${DRM_CONNECTOR}'.split('-')[1] if '-' in '${DRM_CONNECTOR}' else 'HDMI'
 
     for m in monitors:
         spec, modes, properties = m
@@ -80,14 +82,19 @@ try:
         if not chosen_mode and len(modes) > 0:
             chosen_mode = modes[0]
 
-        if 'eDP' in connector:
-            edp_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
-        elif 'HDMI' in connector:
-            hdmi_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
+        is_builtin = properties.get('is-builtin', False)
+        # Pantalla integrada de laptop o monitor principal físico
+        if is_builtin or 'eDP' in connector:
+            main_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
+        elif v_prefix in connector or 'HDMI' in connector or 'Virtual' in connector:
+            ipad_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
+        else:
+            if not main_info:
+                main_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
 
-    if edp_info and hdmi_info:
-        edp_conn, edp_mode_id, W_m, H_m = edp_info
-        hdmi_conn, hdmi_mode_id, W_i, H_i = hdmi_info
+    if main_info and ipad_info:
+        main_conn, main_mode_id, W_m, H_m = main_info
+        ipad_conn, ipad_mode_id, W_i, H_i = ipad_info
 
         # Determinar rotación en Mutter y dimensiones efectivas
         if ORIENT == 'V':
@@ -131,9 +138,9 @@ try:
 
         logical = [
             dbus.Struct((dbus.Int32(main_coords[0]), dbus.Int32(main_coords[1]), dbus.Double(1.0), dbus.UInt32(0), dbus.Boolean(True),
-                         dbus.Array([(edp_conn, edp_mode_id, dbus.Dictionary({}, signature='sv'))], signature='(ssa{sv})')), signature='(iiduba(ssa{sv}))'),
+                         dbus.Array([(main_conn, main_mode_id, dbus.Dictionary({}, signature='sv'))], signature='(ssa{sv})')), signature='(iiduba(ssa{sv}))'),
             dbus.Struct((dbus.Int32(ipad_coords[0]), dbus.Int32(ipad_coords[1]), dbus.Double(1.0), dbus.UInt32(transform), dbus.Boolean(False),
-                         dbus.Array([(hdmi_conn, hdmi_mode_id, dbus.Dictionary({}, signature='sv'))], signature='(ssa{sv})')), signature='(iiduba(ssa{sv}))')
+                         dbus.Array([(ipad_conn, ipad_mode_id, dbus.Dictionary({}, signature='sv'))], signature='(ssa{sv})')), signature='(iiduba(ssa{sv}))')
         ]
         iface.ApplyMonitorsConfig(serial, dbus.UInt32(2), logical, dbus.Dictionary({}, signature='sv'))
         orient_txt = 'Vertical (90°)' if ORIENT == 'V' else 'Horizontal'

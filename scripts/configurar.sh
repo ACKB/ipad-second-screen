@@ -18,6 +18,16 @@ BIN_DIR="${HOME}/.local/bin"
 SYSTEMD_USER_DIR="${HOME}/.config/systemd/user"
 APP_CONFIG_DIR="${HOME}/.config/ipad-second-screen"
 
+# Cargar configuración previa si ya existe para ofrecerla por defecto
+DEFAULT_POS=4
+DEFAULT_ORIENT="H"
+if [ -f "${APP_CONFIG_DIR}/config.env" ]; then
+    # shellcheck disable=SC1090
+    source "${APP_CONFIG_DIR}/config.env" 2>/dev/null || true
+    DEFAULT_POS="${IPAD_POSITION:-4}"
+    DEFAULT_ORIENT="${IPAD_ORIENTATION:-H}"
+fi
+
 clear 2>/dev/null || true
 echo -e "${C_CYAN}${C_BOLD}"
 echo "╔══════════════════════════════════════════════════════════════════════╗"
@@ -117,8 +127,8 @@ echo -e "    ${C_YELLOW}[V]${C_RESET} ${C_BOLD}Vertical (Portrait)${C_RESET} - V
 echo ""
 
 while true; do
-    read -rp "Selecciona orientación (H/V) [Por defecto: H]: " ORIENT_INPUT
-    ORIENT_INPUT="${ORIENT_INPUT:-H}"
+    read -rp "Selecciona orientación (H/V) [Por defecto: ${DEFAULT_ORIENT}]: " ORIENT_INPUT
+    ORIENT_INPUT="${ORIENT_INPUT:-$DEFAULT_ORIENT}"
     ORIENT_INPUT="$(echo "$ORIENT_INPUT" | tr '[:lower:]' '[:upper:]')"
     if [[ "$ORIENT_INPUT" =~ ^[HV]$ ]]; then
         break
@@ -151,8 +161,8 @@ echo -e "       ${C_YELLOW}[8]${C_RESET} = Esquina Superior Izquierda"
 echo ""
 
 while true; do
-    read -rp "Ingresa el número de posición (1-8) [Por defecto: 6]: " POS_INPUT
-    POS_INPUT="${POS_INPUT:-6}"
+    read -rp "Ingresa el número de posición (1-8) [Por defecto: ${DEFAULT_POS}]: " POS_INPUT
+    POS_INPUT="${POS_INPUT:-$DEFAULT_POS}"
     if [[ "$POS_INPUT" =~ ^[1-8]$ ]]; then
         break
     else
@@ -197,15 +207,16 @@ echo -e "    ${C_GREEN}✓ Scripts instalados en ${BIN_DIR}.${C_RESET}"
 mkdir -p "$SUNSHINE_CONFIG_DIR"
 SUNSHINE_CONF="${SUNSHINE_CONFIG_DIR}/sunshine.conf"
 SUNSHINE_APPS="${SUNSHINE_CONFIG_DIR}/apps.json"
+CONNECTOR_NAME="${DETECTED_DRM#*-}"
 
 # Inyectar output_name y encoder en sunshine.conf SOLO si no existen
 if [ -f "$SUNSHINE_CONF" ]; then
     if ! grep -q "^output_name" "$SUNSHINE_CONF"; then
-        echo "output_name = HDMI-A-1" >> "$SUNSHINE_CONF"
-        echo "    ✓ Añadido 'output_name = HDMI-A-1' a sunshine.conf."
+        echo "output_name = ${CONNECTOR_NAME}" >> "$SUNSHINE_CONF"
+        echo "    ✓ Añadido 'output_name = ${CONNECTOR_NAME}' a sunshine.conf."
     fi
 else
-    echo "output_name = HDMI-A-1" > "$SUNSHINE_CONF"
+    echo "output_name = ${CONNECTOR_NAME}" > "$SUNSHINE_CONF"
     echo "capture = kms" >> "$SUNSHINE_CONF"
 fi
 
@@ -224,6 +235,7 @@ import json, os
 
 apps_path = '$SUNSHINE_APPS'
 bin_dir = '$BIN_DIR'
+conn_name = '$CONNECTOR_NAME'
 
 data = {'env': {'PATH': '\$(PATH):\$(HOME)/.local/bin'}, 'apps': []}
 if os.path.exists(apps_path):
@@ -245,7 +257,7 @@ for i, app in enumerate(apps):
 
 ipad_app = {
     'name': 'iPad (Segunda Pantalla)',
-    'output_name': 'HDMI-A-1',
+    'output_name': conn_name,
     'image-path': 'desktop.png',
     'prep-cmd': [
         {

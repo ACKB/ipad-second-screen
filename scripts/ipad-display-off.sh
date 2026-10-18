@@ -4,6 +4,12 @@
 # ==============================================================================
 set -e
 
+CONFIG_ENV="${HOME}/.config/ipad-second-screen/config.env"
+if [ -f "$CONFIG_ENV" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_ENV"
+fi
+
 DRM_CONNECTOR="${DRM_CONNECTOR:-card1-HDMI-A-1}"
 STATUS_PATH="/sys/class/drm/${DRM_CONNECTOR}/status"
 

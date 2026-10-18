@@ -10,7 +10,20 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ON_SCRIPT="${SCRIPT_DIR}/ipad-display-on.sh"
 OFF_SCRIPT="${SCRIPT_DIR}/ipad-display-off.sh"
-LOG_FILE="${HOME}/.config/sunshine/sunshine.log"
+
+if [ -x "${HOME}/.local/bin/ipad-display-on.sh" ]; then
+    ON_SCRIPT="${HOME}/.local/bin/ipad-display-on.sh"
+    OFF_SCRIPT="${HOME}/.local/bin/ipad-display-off.sh"
+fi
+
+CONFIG_ENV="${HOME}/.config/ipad-second-screen/config.env"
+if [ -f "$CONFIG_ENV" ]; then
+    # shellcheck disable=SC1090
+    source "$CONFIG_ENV"
+fi
+
+SUN_DIR="${SUNSHINE_CONFIG_DIR:-$HOME/.config/sunshine}"
+LOG_FILE="${SUN_DIR}/sunshine.log"
 
 echo "[ipad-daemon] Iniciando demonio de pantalla virtual para iPad..."
 
