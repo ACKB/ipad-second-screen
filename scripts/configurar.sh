@@ -278,10 +278,12 @@ with open(apps_path, 'w', encoding='utf-8') as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
 "
 
-# Instalar servicio systemd de usuario
+# Instalar y habilitar servicio systemd de usuario (demonio automático)
 mkdir -p "$SYSTEMD_USER_DIR"
 cp "${SCRIPT_DIR}/../systemd/ipad-screen-daemon.service" "${SYSTEMD_USER_DIR}/"
 systemctl --user daemon-reload 2>/dev/null || true
+systemctl --user enable --now ipad-screen-daemon.service 2>/dev/null || true
+echo "    ✓ Demonio automático activado (ipad-screen-daemon.service)."
 
 # Reiniciar Sunshine suavemente para cargar la nueva app
 if systemctl --user is-active --quiet app-dev.lizardbyte.app.Sunshine.service 2>/dev/null; then

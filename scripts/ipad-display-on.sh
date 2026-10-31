@@ -21,6 +21,7 @@ if [ ! -f "$STATUS_PATH" ]; then
     AUTO_PATH=$(ls /sys/class/drm/card*-HDMI-A-*/status 2>/dev/null | head -n 1 || true)
     if [ -n "$AUTO_PATH" ]; then
         STATUS_PATH="$AUTO_PATH"
+        DRM_CONNECTOR="$(basename "$(dirname "$STATUS_PATH")")"
         echo "    Conector detectado automáticamente: $STATUS_PATH"
     else
         echo "Error: No se encontró la interfaz DRM para forzar la pantalla."
@@ -29,11 +30,10 @@ if [ ! -f "$STATUS_PATH" ]; then
 fi
 
 echo on | sudo tee "$STATUS_PATH" > /dev/null
+sudo udevadm trigger -s drm -c change 2>/dev/null || true
 echo "    Conector forzado a estado 'connected'."
 
-# Esperar brevemente a que Wayland (Mutter) registre el nuevo monitor
-sleep 0.8
-
+# Verificación de salida en Sunshine
 echo "==> [2/3] Verificando configuración de salida en Sunshine..."
 if [ -f "$CONF_FILE" ]; then
     RESTART_NEEDED=0
@@ -55,7 +55,7 @@ fi
 
 echo "==> [3/3] Aplicando disposición en GNOME Mutter (Posición: $IPAD_POSITION | Orientación: $IPAD_ORIENTATION)..."
 python3 -c "
-import dbus, sys
+import dbus, sys, time
 
 POS = int('$IPAD_POSITION')
 ORIENT = '$IPAD_ORIENTATION'.upper()
@@ -65,32 +65,43 @@ try:
     bus = dbus.SessionBus()
     obj = bus.get_object('org.gnome.Mutter.DisplayConfig', '/org/gnome/Mutter/DisplayConfig')
     iface = dbus.Interface(obj, 'org.gnome.Mutter.DisplayConfig')
-    serial, monitors, logical_monitors, props = iface.GetCurrentState()
+
+    v_prefix = '${DRM_CONNECTOR}'.split('-')[1] if '-' in '${DRM_CONNECTOR}' else 'HDMI'
 
     main_info = None
     ipad_info = None
-    v_prefix = '${DRM_CONNECTOR}'.split('-')[1] if '-' in '${DRM_CONNECTOR}' else 'HDMI'
+    serial = None
 
-    for m in monitors:
-        spec, modes, properties = m
-        connector = spec[0]
-        chosen_mode = None
-        for mode in modes:
-            if mode[6].get('is-current', False) or mode[6].get('is-preferred', False):
-                chosen_mode = mode
-                break
-        if not chosen_mode and len(modes) > 0:
-            chosen_mode = modes[0]
+    # Esperar activamente a que Mutter registre el nuevo conector virtual (hasta 5 segundos)
+    for attempt in range(25):
+        serial, monitors, logical_monitors, props = iface.GetCurrentState()
+        main_info = None
+        ipad_info = None
 
-        is_builtin = properties.get('is-builtin', False)
-        # Pantalla integrada de laptop o monitor principal físico
-        if is_builtin or 'eDP' in connector:
-            main_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
-        elif v_prefix in connector or 'HDMI' in connector or 'Virtual' in connector:
-            ipad_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
-        else:
-            if not main_info:
+        for m in monitors:
+            spec, modes, properties = m
+            connector = spec[0]
+            chosen_mode = None
+            for mode in modes:
+                if mode[6].get('is-current', False) or mode[6].get('is-preferred', False):
+                    chosen_mode = mode
+                    break
+            if not chosen_mode and len(modes) > 0:
+                chosen_mode = modes[0]
+
+            is_builtin = properties.get('is-builtin', False)
+            # Pantalla integrada de laptop o monitor principal físico
+            if is_builtin or 'eDP' in connector:
                 main_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
+            elif v_prefix in connector or 'HDMI' in connector or 'Virtual' in connector:
+                ipad_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
+            else:
+                if not main_info:
+                    main_info = (connector, chosen_mode[0], chosen_mode[1], chosen_mode[2])
+
+        if main_info and ipad_info:
+            break
+        time.sleep(0.2)
 
     if main_info and ipad_info:
         main_conn, main_mode_id, W_m, H_m = main_info
@@ -151,6 +162,6 @@ try:
         print('    Aviso: No se detectaron ambos monitores en Mutter aún. Se mantendrá la configuración automática.')
 except Exception as e:
     print(f'    Aviso Mutter: {e}')
-" 2>/dev/null || true
+" || true
 
 echo "==> ¡Listo! Segunda pantalla virtual activada."
